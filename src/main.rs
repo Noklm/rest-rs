@@ -1,8 +1,4 @@
-//! Run with
-//!
-//! ```not_rust
-//! cargo run -p example-tracing-aka-logging
-//! ```
+mod app;
 
 use std::time::Duration;
 
@@ -15,7 +11,7 @@ use axum::{
     Router,
 };
 
-use tokio::{net::TcpListener, time::sleep};
+use tokio::net::TcpListener;
 use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::{info_span, Span};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
@@ -39,7 +35,9 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
-        .route("/", get(handler))
+        .route("/", get(hello_world))
+        .nest("/api", app::handlers::routes())
+        // .merge(app::handlers::routes())
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
         // It provides good defaults but is also very customizable.
         //
@@ -60,19 +58,18 @@ async fn main() {
                         "http_request",
                         method = ?request.method(),
                         matched_path,
-                        testa = "cool",
-                        status = tracing::field::Empty,
+                        latency = tracing::field::Empty,
                     )
                 })
                 .on_request(|_request: &Request<_>, _span: &Span| {
                     // You can use `_span.record("some_other_field", value)` in one of these
                     // closures to attach a value to the initially empty field in the info_span
                     // created above.
-                    tracing::info!("{} {}", _request.method(), _request.uri().path())
+                    tracing::debug!("{} {}", _request.method(), _request.uri().path())
                 })
                 .on_response(|_response: &Response, _latency: Duration, _span: &Span| {
-                    _span.record("status", _response.status().as_str());
-                    tracing::debug!("response {} generated in {:?}", _response.status(), _latency)
+                    _span.record("latency", format!("{:?}", _latency));
+                    tracing::debug!("{}", _response.status())
                 })
                 .on_body_chunk(|_chunk: &Bytes, _latency: Duration, _span: &Span| {
                     // ...
@@ -95,8 +92,7 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn handler() -> Html<&'static str> {
-    tracing::debug!("Hello mike");
-    sleep(Duration::from_millis(3000)).await;
+async fn hello_world() -> Html<&'static str> {
+    tracing::debug!("Hello world");
     Html("<h1>Hello, World!</h1>")
 }
