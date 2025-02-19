@@ -1,4 +1,5 @@
 mod app;
+mod error;
 
 use std::time::Duration;
 
@@ -16,8 +17,11 @@ use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
 use tracing::{info_span, Span};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
+use anyhow::{Context, Result};
+use error::AppError;
+
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -36,6 +40,7 @@ async fn main() {
     // build our application with a route
     let app = Router::new()
         .route("/", get(hello_world))
+        .route("/error", get(hello_error))
         .nest("/api", app::handlers::routes())
         // .merge(app::handlers::routes())
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
@@ -81,18 +86,39 @@ async fn main() {
                 )
                 .on_failure(
                     |_error: ServerErrorsFailureClass, _latency: Duration, _span: &Span| {
-                        tracing::debug!("error {} generated in {:?}", _error, _latency)
+                        _span.record("latency", format!("{:?}", _latency));
+                        tracing::error!("{}", _error)
                     },
                 ),
-        );
+        )
+        .layer(tower_http::catch_panic::CatchPanicLayer::new());
 
     // run it
-    let listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
+    let listener = TcpListener::bind("127.0.0.1:3000")
+        .await
+        .context("failed to bind TCP listener")?;
+
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app)
+        .await
+        .context("axum::serve failed")?;
+
+    Ok(())
 }
 
-async fn hello_world() -> Html<&'static str> {
+async fn hello_world() -> Result<Html<&'static str>, AppError> {
     tracing::debug!("Hello world");
-    Html("<h1>Hello, World!</h1>")
+    Ok(Html("<h1>Hello, World!</h1>"))
+}
+
+async fn hello_error() -> Result<Html<&'static str>, AppError> {
+    generate_error()?;
+    #[allow(dead_code)]
+    Ok(Html("<h1>Hello, World!</h1>"))
+}
+
+fn generate_error() -> Result<()>{
+    anyhow::bail!("Error generated");
+    #[allow(unreachable_code)]
+    Ok(())
 }
