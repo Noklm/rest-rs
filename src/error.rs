@@ -27,7 +27,6 @@ pub enum AppError {
 
 impl IntoResponse for AppError {
     fn into_response(self) -> axum::response::Response {
-        // tracing::error!("{}", self.0.to_string());
         #[derive(Serialize)]
         struct ErrorResponse {
             message: String,

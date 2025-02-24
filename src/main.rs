@@ -94,11 +94,5 @@ async fn hello_world() -> Result<Html<&'static str>, AppError> {
 }
 
 async fn hello_error() -> Result<Html<&'static str>, AppError> {
-    generate_error()?;
-    #[allow(dead_code)]
-    Ok(Html("<h1>Hello, World!</h1>"))
-}
-
-fn generate_error() -> Result<(), AppError> {
     Err(AppError::Unknown)
 }
