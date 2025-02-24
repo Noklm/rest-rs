@@ -4,24 +4,22 @@ mod error;
 use std::time::Duration;
 
 use axum::{
-    body::Bytes,
     extract::MatchedPath,
-    http::{HeaderMap, Request},
+    http::Request,
     response::{Html, Response},
     routing::get,
     Router,
 };
 
 use tokio::net::TcpListener;
-use tower_http::{classify::ServerErrorsFailureClass, trace::TraceLayer};
+use tower_http::trace::TraceLayer;
 use tracing::{info_span, Span};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use anyhow::{Context, Result};
 use error::AppError;
 
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
@@ -75,35 +73,19 @@ async fn main() -> Result<()> {
                 .on_response(|_response: &Response, _latency: Duration, _span: &Span| {
                     _span.record("latency", format!("{:?}", _latency));
                     tracing::debug!("{}", _response.status())
-                })
-                .on_body_chunk(|_chunk: &Bytes, _latency: Duration, _span: &Span| {
-                    // ...
-                })
-                .on_eos(
-                    |_trailers: Option<&HeaderMap>, _stream_duration: Duration, _span: &Span| {
-                        // ...
-                    },
-                )
-                .on_failure(
-                    |_error: ServerErrorsFailureClass, _latency: Duration, _span: &Span| {
-                        _span.record("latency", format!("{:?}", _latency));
-                        tracing::error!("{}", _error)
-                    },
-                ),
+                }),
         )
         .layer(tower_http::catch_panic::CatchPanicLayer::new());
 
     // run it
     let listener = TcpListener::bind("127.0.0.1:3000")
         .await
-        .context("failed to bind TCP listener")?;
+        .expect("failed to bind TCP listener");
 
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app)
         .await
-        .context("axum::serve failed")?;
-
-    Ok(())
+        .expect("axum::serve failed");
 }
 
 async fn hello_world() -> Result<Html<&'static str>, AppError> {
@@ -117,8 +99,6 @@ async fn hello_error() -> Result<Html<&'static str>, AppError> {
     Ok(Html("<h1>Hello, World!</h1>"))
 }
 
-fn generate_error() -> Result<()>{
-    anyhow::bail!("Error generated");
-    #[allow(unreachable_code)]
-    Ok(())
+fn generate_error() -> Result<(), AppError> {
+    Err(AppError::Unknown)
 }
