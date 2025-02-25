@@ -1,5 +1,6 @@
 mod app;
 mod error;
+mod settings;
 
 use std::time::Duration;
 
@@ -11,23 +12,27 @@ use axum::{
     Router,
 };
 
+use settings::Settings;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{info_span, Span};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-use error::AppError;
+use error::{AppError, Result};
 
 #[tokio::main]
 async fn main() {
+    let settings = Settings::new("settings", "APP").expect("Bad configuration");
+
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| {
                 // axum logs rejections from built-in extractors with the `axum::rejection`
                 // target, at `TRACE` level. `axum::rejection=trace` enables showing those events
                 format!(
-                    "{}=debug,tower_http=info,axum::rejection=trace",
-                    env!("CARGO_CRATE_NAME")
+                    "{}={},tower_http=info,axum::rejection=trace",
+                    env!("CARGO_CRATE_NAME"),
+                    settings.log_level
                 )
                 .into()
             }),
@@ -78,9 +83,9 @@ async fn main() {
         .layer(tower_http::catch_panic::CatchPanicLayer::new());
 
     // run it
-    let listener = TcpListener::bind("127.0.0.1:3000")
+    let listener = TcpListener::bind(settings.url)
         .await
-        .expect("failed to bind TCP listener");
+        .expect("Failed to bind TCP listener");
 
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app)
@@ -88,11 +93,11 @@ async fn main() {
         .expect("axum::serve failed");
 }
 
-async fn hello_world() -> Result<Html<&'static str>, AppError> {
+async fn hello_world() -> Result<Html<&'static str>> {
     tracing::debug!("Hello world");
     Ok(Html("<h1>Hello, World!</h1>"))
 }
 
-async fn hello_error() -> Result<Html<&'static str>, AppError> {
+async fn hello_error() -> Result<Html<&'static str>> {
     Err(AppError::Unknown)
 }
