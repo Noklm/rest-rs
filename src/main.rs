@@ -1,24 +1,17 @@
-mod app;
-mod error;
 mod settings;
-
 use std::time::Duration;
 
 use axum::{
-    extract::MatchedPath,
-    http::Request,
-    response::{Html, Response},
+    extract::{MatchedPath, Request},
+    response::Response,
     routing::get,
     Router,
 };
-
 use settings::Settings;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{info_span, Span};
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
-
-use error::{AppError, Result};
 
 #[tokio::main]
 async fn main() {
@@ -42,9 +35,9 @@ async fn main() {
 
     // build our application with a route
     let app = Router::new()
-        .route("/", get(hello_world))
-        .route("/error", get(hello_error))
-        .nest("/api", app::handlers::routes())
+        .route("/", get(rest_rs::hello_world))
+        .route("/error", get(rest_rs::hello_error))
+        .nest("/api", rest_rs::handlers::routes())
         // .merge(app::handlers::routes())
         // `TraceLayer` is provided by tower-http so you have to add that as a dependency.
         // It provides good defaults but is also very customizable.
@@ -91,13 +84,4 @@ async fn main() {
     axum::serve(listener, app)
         .await
         .expect("axum::serve failed");
-}
-
-async fn hello_world() -> Result<Html<&'static str>> {
-    tracing::debug!("Hello world");
-    Ok(Html("<h1>Hello, World!</h1>"))
-}
-
-async fn hello_error() -> Result<Html<&'static str>> {
-    Err(AppError::Unknown)
 }

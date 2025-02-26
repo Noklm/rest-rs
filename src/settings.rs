@@ -1,7 +1,7 @@
 use config::{Config, Environment, File};
 use serde::Deserialize;
 
-use crate::error::AppError;
+use rest_rs::error::Result;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct Settings {
@@ -10,7 +10,7 @@ pub struct Settings {
 }
 
 impl Settings {
-    pub fn new(location: &str, env_prefix: &str) -> Result<Settings, AppError> {
+    pub fn new(location: &str, env_prefix: &str) -> Result<Settings> {
         let s = Config::builder()
             .add_source(File::with_name(location))
             .add_source(
