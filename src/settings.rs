@@ -4,9 +4,15 @@ use serde::Deserialize;
 use rest_rs::error::Result;
 
 #[derive(Debug, Deserialize, Default)]
+pub struct Database {
+    pub url: String,
+}
+
+#[derive(Debug, Deserialize, Default)]
 pub struct Settings {
     pub url: String,
     pub log_level: String,
+    pub database: Database,
 }
 
 impl Settings {

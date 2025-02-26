@@ -24,6 +24,8 @@ where
 
 #[derive(Error, Debug)]
 pub enum AppError {
+    #[error("Database Error")]
+    DbError(#[from] sqlx::Error),
     #[error("Config Error")]
     ConfigError(#[from] ConfigError),
     #[error("Unknown Error")]
@@ -40,6 +42,13 @@ impl IntoResponse for AppError {
         let (status, message) = match self {
             AppError::ConfigError(config_error) => {
                 tracing::error!(%config_error, "config error");
+                (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    "Something went wrong".to_owned(),
+                )
+            }
+            AppError::DbError(db_error) => {
+                tracing::error!(%db_error, "database error");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "Something went wrong".to_owned(),

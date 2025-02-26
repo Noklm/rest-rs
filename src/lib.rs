@@ -3,11 +3,18 @@ pub mod error;
 
 pub use app::*;
 
+use axum::extract::State;
 use error::{AppError, Result};
+use sqlx::PgPool;
 
-pub async fn hello_world() -> Result<String> {
+pub async fn hello_world(State(pool): State<PgPool>) -> Result<String> {
     tracing::debug!("Hello world");
-    Ok(format!("Hello, World!"))
+
+    let hello_pg = sqlx::query_scalar("select 'Hello, World!'")
+        .fetch_one(&pool)
+        .await?;
+
+    Ok(hello_pg)
 }
 
 pub async fn hello_error() -> Result<String> {

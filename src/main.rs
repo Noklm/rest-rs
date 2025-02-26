@@ -8,6 +8,7 @@ use axum::{
     Router,
 };
 use settings::Settings;
+use sqlx::postgres::PgPoolOptions;
 use tokio::net::TcpListener;
 use tower_http::trace::TraceLayer;
 use tracing::{info_span, Span};
@@ -16,6 +17,13 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[tokio::main]
 async fn main() {
     let settings = Settings::new("settings", "APP").expect("Bad configuration");
+
+    let pool = PgPoolOptions::new()
+        .max_connections(5)
+        .acquire_timeout(Duration::from_secs(3))
+        .connect(&settings.database.url)
+        .await
+        .expect("can't connect to database");
 
     tracing_subscriber::registry()
         .with(
@@ -36,6 +44,7 @@ async fn main() {
     // build our application with a route
     let app = Router::new()
         .route("/", get(rest_rs::hello_world))
+        .with_state(pool)
         .route("/error", get(rest_rs::hello_error))
         .nest("/api", rest_rs::handlers::routes())
         // .merge(app::handlers::routes())
